@@ -5,7 +5,7 @@
 // =============================================
 var argv           = require('yargs').argv;
 var autoprefixer   = require('autoprefixer');
-var browserSync    = require('browser-sync');
+var browserSync    = require('browser-sync').create();
 var babelify       = require('babelify');
 var browserify     = require('browserify');
 var buffer         = require('vinyl-buffer');
