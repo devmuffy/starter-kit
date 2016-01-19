@@ -164,16 +164,12 @@ gulp.task('vendor', function() {
     .pipe(gulpif(isDevelopment, sourcemaps.init()))
     .pipe(minifyCss())
     .pipe(gulpif(isDevelopment, sourcemaps.write('.')))
-    .pipe(replace(/url\s*\("?\/?(?:[^\/]+\/)*?([^\/]+?\.[^\"\'\)\/]+)"?\)/g, 'url(images/$1)'))
+    .pipe(replace(/url\s*\("?\/?(?:[^\/]+\/)*?([^\/]+?\.[^\"\'\)\/]+)"?\)/g, 'url(assets/$1)'))
     .pipe(gulp.dest('./dist'));
 
-  gulp.src('./assets/vendor/**/*.{eot,woff,svg,ttf}')
+  gulp.src('./assets/vendor/**/*.{eot,gif,jpeg,jpg,png,svg,ttf,woff}')
     .pipe(flatten())
-    .pipe(gulp.dest('./dist/fonts'));
-
-  gulp.src('./assets/vendor/**/*.{gif,png,svg,jpg,jpeg}')
-    .pipe(flatten())
-    .pipe(gulp.dest('./dist/images'));
+    .pipe(gulp.dest('./dist/assets'));
 });
 
 gulp.task('default', ['sass', 'sass:watch', 'js:watch', 'browser-sync']);
