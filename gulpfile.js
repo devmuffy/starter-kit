@@ -5,8 +5,8 @@
 // =============================================
 var argv           = require('yargs').argv;
 var autoprefixer   = require('autoprefixer');
-var browserSync    = require('browser-sync').create();
 var babelify       = require('babelify');
+var browserSync    = require('browser-sync').create();
 var browserify     = require('browserify');
 var buffer         = require('vinyl-buffer');
 var colors         = require('colors');
@@ -16,10 +16,10 @@ var eslint         = require('gulp-eslint');
 var envify         = require('envify/custom');
 var flatten        = require('gulp-flatten');
 var gulp           = require('gulp');
-var gulpFilter     = require('gulp-filter');
 var gulpif         = require('gulp-if');
-var mainBowerFiles = require('main-bower-files');
+var minifyCss      = require('gulp-minify-css');
 var postcss        = require('gulp-postcss');
+var replace        = require('gulp-replace');
 var rename         = require('gulp-rename');
 var sass           = require('gulp-sass');
 var source         = require('vinyl-source-stream');
@@ -62,20 +62,22 @@ gulp.task('browser-sync', function () {
 // Sass
 // =============================================
 gulp.task('sass', function () {
-   // sourcemaps doesn't work with compressed output style
+  // sourcemaps doesn't work with compressed output style
   var sassOutputStyle = isDevelopment ? 'compact' : 'compressed';
 
-  gulp.src('./sass/index.scss')
+  gulp.src('./assets/sass/index.scss')
     .pipe(gulpif(isDevelopment, sourcemaps.init()))
       .pipe(sass({ outputStyle: sassOutputStyle }).on('error', sass.logError))
-      .pipe(postcss([ autoprefixer({ browsers: ['last 2 versions'] }) ]))
+      .pipe(postcss([
+        autoprefixer({ browsers: ['last 2 versions'] })
+      ]))
       .pipe(rename('bundle.css'))
     .pipe(gulpif(isDevelopment, sourcemaps.write('.')))
     .pipe(gulp.dest('./dist'));
 });
 
 gulp.task('sass:watch', function () {
-  gulp.watch('./sass/**/*.scss', ['sass']);
+  gulp.watch('./assets/sass/**/*.scss', ['sass']);
 });
 
 
@@ -100,15 +102,19 @@ gulp.task('js:watch', function () {
 });
 
 gulp.task('js:lint', function () {
-  return gulp.src(['./js/**/*.js'])
+  return lintJS();
+});
+
+function lintJS() {
+  return gulp.src(['./assets/js/**/*.js'])
     .pipe(eslint())
     .pipe(eslint.format());
-});
+}
 
 function createBundler() {
   var bundler = browserify({
-    entries: ['./js/index.js'],
-    debug: isDevelopment ? true : false,
+    entries: ['./assets/js/index.js'],
+    debug: isDevelopment,
     cache: {},
     packageCache: {}
   })
@@ -125,9 +131,7 @@ function bundle(bundler) {
 
   console.log(colors.green('------------------- REBUNDLE -------------------'));
 
-  gulp.src(['./js/**/*.js'])
-    .pipe(eslint())
-    .pipe(eslint.format());
+  lintJS();
 
   bundler
     .bundle()
@@ -146,39 +150,31 @@ function bundle(bundler) {
 // =============================================
 // Vendor
 // =============================================
-gulp.task('bower', function () {
-  var jsFilter = gulpFilter(['**/*.js'], { restore: true });
-  var cssFilter = gulpFilter(['**/*.css'], { restore: true });
-  var fontFilter = gulpFilter(['*.eot', '*.woff', '*.svg', '*.ttf'], { restore: true });
-  var imageFilter = gulpFilter(['*.gif', '*.png', '*.svg', '*.jpg', '*.jpeg'], { restore: true });
+gulp.task('vendor', function() {
+  gulp.src('./assets/vendor/**/*.js')
+    .pipe(concat('vendor.js'))
+    .pipe(gulpif(isDevelopment, sourcemaps.init()))
+    .pipe(buffer())
+    .pipe(uglify())
+    .pipe(gulpif(isDevelopment, sourcemaps.write('.')))
+    .pipe(gulp.dest('./dist'));
 
-  return gulp.src(mainBowerFiles())
-    .pipe(jsFilter)
-      .pipe(concat('vendor.js'))
-      .pipe(buffer())
-      .pipe(uglify())
-      .pipe(gulp.dest('./dist'))
-      .pipe(jsFilter.restore)
+  gulp.src('./assets/vendor/**/*.css')
+    .pipe(concat('vendor.css'))
+    .pipe(gulpif(isDevelopment, sourcemaps.init()))
+    .pipe(minifyCss())
+    .pipe(gulpif(isDevelopment, sourcemaps.write('.')))
+    .pipe(replace(/url\s*\("?\/?(?:[^\/]+\/)*?([^\/]+?\.[^\"\'\)\/]+)"?\)/g, 'url(images/$1)'))
+    .pipe(gulp.dest('./dist'));
 
-    .pipe(cssFilter)
-      .pipe(concat('vendor.css'))
-      .pipe(gulp.dest('./dist'))
-      .pipe(cssFilter.restore)
+  gulp.src('./assets/vendor/**/*.{eot,woff,svg,ttf}')
+    .pipe(flatten())
+    .pipe(gulp.dest('./dist/fonts'));
 
-    .pipe(fontFilter)
-      .pipe(flatten())
-      .pipe(gulp.dest('./dist/fonts'))
-      .pipe(fontFilter.restore)
-
-    .pipe(imageFilter)
-      .pipe(flatten())
-      .pipe(gulp.dest('./dist/images'))
-      .pipe(imageFilter.restore);
+  gulp.src('./assets/vendor/**/*.{gif,png,svg,jpg,jpeg}')
+    .pipe(flatten())
+    .pipe(gulp.dest('./dist/images'));
 });
 
-function prettyDisplay(obj) {
-  console.log(JSON.stringify(obj, null, 2));
-}
-
 gulp.task('default', ['sass', 'sass:watch', 'js:watch', 'browser-sync']);
-gulp.task('build', ['clean', 'sass', 'js', 'bower']);
+gulp.task('build', ['clean', 'sass', 'js', 'vendor']);
